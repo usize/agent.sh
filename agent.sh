@@ -55,7 +55,7 @@ _a_tmux() {
   fi
 
   case "$layout" in
-    here)   tmux select-pane -T "$label"; eval "$cmd" ;;
+    here)   eval "$cmd" ;;
     window) tmux new-window -n "$label" "$cmd" ;;
     vsplit) tmux split-window -v -p 50 "$cmd"; tmux select-pane -T "$label" ;;
     hsplit) tmux split-window -h -p 50 "$cmd"; tmux select-pane -T "$label" ;;
@@ -127,7 +127,7 @@ agents() {
     local sandbox_cmd
     if [[ -n "$env_flags" ]]; then
       _a_info "starting with env vars..."
-      sandbox_cmd="docker sandbox exec -it${env_flags} ${name} ${agent_type}${resume_flag}"
+      sandbox_cmd="docker sandbox exec -it -w '${ws}'${env_flags} ${name} ${agent_type} --dangerously-skip-permissions${resume_flag}"
       [[ -n "$extra" ]] && sandbox_cmd="${sandbox_cmd} ${extra}"
     else
       _a_info "starting sandbox..."
