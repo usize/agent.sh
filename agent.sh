@@ -121,15 +121,18 @@ agents() {
     if [[ -f "${ws}/.gcloud/application_default_credentials.json" ]]; then
       env_flags+=" -e GOOGLE_APPLICATION_CREDENTIALS=${ws}/.gcloud/application_default_credentials.json"
     fi
+    local resume_flag=""
+    [[ -n "$existing_sandbox" ]] && resume_flag=" --continue"
+
     local sandbox_cmd
     if [[ -n "$env_flags" ]]; then
       _a_info "starting with env vars..."
-      sandbox_cmd="docker sandbox exec -it${env_flags} ${name} ${agent_type}"
+      sandbox_cmd="docker sandbox exec -it${env_flags} ${name} ${agent_type}${resume_flag}"
       [[ -n "$extra" ]] && sandbox_cmd="${sandbox_cmd} ${extra}"
     else
       _a_info "starting sandbox..."
       sandbox_cmd="docker sandbox run ${name}"
-      [[ -n "$extra" ]] && sandbox_cmd="${sandbox_cmd} -- ${extra}"
+      [[ -n "$resume_flag" || -n "$extra" ]] && sandbox_cmd="${sandbox_cmd} --${resume_flag} ${extra}"
     fi
     _a_info "sandbox command: ${sandbox_cmd}"
 
