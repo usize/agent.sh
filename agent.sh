@@ -99,7 +99,8 @@ agents() {
 
     if [[ -z "$existing_sandbox" ]]; then
       _a_info "creating sandbox..."
-      docker sandbox create ${AGENT_SANDBOX_ARGS} --name "${name}" "${agent_type}" "${ws}" \
+      local root; root="$(git rev-parse --show-toplevel 2>/dev/null)"
+      docker sandbox create ${AGENT_SANDBOX_ARGS} --name "${name}" "${agent_type}" "${ws}" "${root}/.git" \
         || { _a_err "sandbox create failed"; return 1; }
     fi
 
@@ -151,9 +152,9 @@ agents() {
       local n; n="$(basename "$d")"
       local atype="unknown"
       [[ -f "${d}/.agent-type" ]] && atype="$(<"${d}/.agent-type")"
-      local status="none"
-      docker sandbox ls -q 2>/dev/null | grep -qx "$n" && status="created"
-      printf "  %-20s %-10s %s\n" "$n" "$atype" "$status"
+      local sbox="none"
+      docker sandbox ls -q 2>/dev/null | grep -qx "$n" && sbox="created"
+      printf "  %-20s %-10s %s\n" "$n" "$atype" "$sbox"
       found=1
     done
     [[ $found -eq 0 ]] && echo "  (no agents)"
