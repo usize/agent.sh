@@ -125,15 +125,24 @@ agents() {
     local resume_flag=""
     [[ -n "$existing_sandbox" ]] && resume_flag=" --continue"
 
+    local base_flags="--dangerously-skip-permissions"
+    [[ -n "$extra" ]] && base_flags="${base_flags} ${extra}"
+
     local sandbox_cmd
     if [[ -n "$env_flags" ]]; then
-      _a_info "starting with env vars..."
-      sandbox_cmd="docker sandbox exec -it -w '${ws}'${env_flags} ${name} ${agent_type} --dangerously-skip-permissions${resume_flag}"
-      [[ -n "$extra" ]] && sandbox_cmd="${sandbox_cmd} ${extra}"
+      local exec_prefix="docker sandbox exec -it -w '${ws}'${env_flags} ${name} ${agent_type}"
+      if [[ -n "$resume_flag" ]]; then
+        sandbox_cmd="${exec_prefix} ${base_flags} --continue || ${exec_prefix} ${base_flags}"
+      else
+        sandbox_cmd="${exec_prefix} ${base_flags}"
+      fi
     else
-      _a_info "starting sandbox..."
       sandbox_cmd="docker sandbox run ${name}"
-      [[ -n "$resume_flag" || -n "$extra" ]] && sandbox_cmd="${sandbox_cmd} --${resume_flag} ${extra}"
+      if [[ -n "$resume_flag" ]]; then
+        sandbox_cmd="${sandbox_cmd} -- ${base_flags} --continue || docker sandbox run ${name} -- ${base_flags}"
+      elif [[ -n "$extra" ]]; then
+        sandbox_cmd="${sandbox_cmd} -- ${base_flags}"
+      fi
     fi
     _a_info "sandbox command: ${sandbox_cmd}"
 
@@ -229,3 +238,8 @@ EOF
   *) _a_err "unknown: $cmd"; agents help ;;
   esac
 }
+
+# If executed directly (not sourced), dispatch to the agents function
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]] 2>/dev/null || [[ "$ZSH_EVAL_CONTEXT" == "toplevel" ]] 2>/dev/null; then
+  agents "$@"
+fi
