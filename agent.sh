@@ -14,7 +14,6 @@ if [[ -z "${AGENT_SANDBOX_ENV_VARS+x}" ]]; then
     ANTHROPIC_VERTEX_PROJECT_ID
     ANTHROPIC_MODEL
     GOOGLE_CLOUD_PROJECT
-    GOOGLE_APPLICATION_CREDENTIALS
   )
 fi
 
@@ -48,8 +47,15 @@ _a_worktree() {
 _a_tmux() {
   local label="$1" layout="$2" cmd="$3"
   if [[ -z "${TMUX:-}" ]]; then eval "$cmd"; return; fi
+
+  local border_status; border_status="$(tmux show-option -gqv pane-border-status 2>/dev/null)"
+  if [[ "$border_status" == "off" || -z "$border_status" ]]; then
+    _a_err "tmux pane-border-status is off — pane titles won't be visible"
+    _a_err "add to .tmux.conf: set -g pane-border-status top"
+  fi
+
   case "$layout" in
-    here)   tmux rename-window "$label"; eval "$cmd" ;;
+    here)   tmux select-pane -T "$label"; eval "$cmd" ;;
     window) tmux new-window -n "$label" "$cmd" ;;
     vsplit) tmux split-window -v -p 50 "$cmd"; tmux select-pane -T "$label" ;;
     hsplit) tmux split-window -h -p 50 "$cmd"; tmux select-pane -T "$label" ;;
@@ -100,7 +106,21 @@ agents() {
     # persist agent type for ls
     echo "${agent_type}" > "${ws}/.agent-type"
 
+    # copy gcloud ADC into workspace so the sandbox can find them
+    local adc="${HOME}/.config/gcloud/application_default_credentials.json"
+    if [[ -f "$adc" ]]; then
+      mkdir -p "${ws}/.gcloud"
+      cp "$adc" "${ws}/.gcloud/application_default_credentials.json"
+      # .gitignore it
+      grep -qxF "/.gcloud/" "${ws}/.gitignore" 2>/dev/null \
+        || echo "/.gcloud/" >> "${ws}/.gitignore"
+    fi
+
     local env_flags; env_flags="$(_a_env_flags)"
+    # point credentials at the workspace copy
+    if [[ -f "${ws}/.gcloud/application_default_credentials.json" ]]; then
+      env_flags+=" -e GOOGLE_APPLICATION_CREDENTIALS=${ws}/.gcloud/application_default_credentials.json"
+    fi
     local sandbox_cmd
     if [[ -n "$env_flags" ]]; then
       _a_info "starting with env vars..."
