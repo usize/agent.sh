@@ -144,17 +144,17 @@ agents() {
     ;;
 
   kill)
-    local name="${1:?usage: agents kill <name>}"
-    if [[ -n "${TMUX:-}" ]]; then
-      local wid; wid=$(tmux list-windows -F '#{window_id} #{window_name}' \
-        | grep ":${name}$" | awk '{print $1}' | head -1)
-      if [[ -n "$wid" ]]; then tmux kill-window -t "$wid"
-      else
-        local pid; pid=$(tmux list-panes -a -F '#{pane_id} #{pane_title}' \
-          | grep ":${name}$" | awk '{print $1}' | head -1)
-        [[ -n "$pid" ]] && tmux kill-pane -t "$pid"
-      fi
+    local name="${1:?usage: agents kill <name> | --all}"
+
+    if [[ "$name" == "--all" ]]; then
+      local root; root="$(git rev-parse --show-toplevel 2>/dev/null)" || { _a_err "not in a repo"; return 1; }
+      for d in "${root}/${AGENT_DIR}"/*/; do
+        [[ -d "$d" ]] || continue
+        agents kill "$(basename "$d")"
+      done
+      return
     fi
+
     docker sandbox stop "${name}" 2>/dev/null
     _a_info "killed: $name"
     ;;
@@ -169,6 +169,7 @@ agents() {
     local root; root="$(git rev-parse --show-toplevel 2>/dev/null)" || { _a_err "not in a repo"; return 1; }
 
     if [[ "$name" == "--all" ]]; then
+      agents kill --all 2>/dev/null
       for d in "${root}/${AGENT_DIR}"/*/; do
         [[ -d "$d" ]] || continue
         local n; n="$(basename "$d")"
@@ -193,7 +194,7 @@ agents — tmux panes for sandboxed Claude Code agents
 
   agents start [-wvh] [agent] <name> [-- args]
   agents ls
-  agents kill  <name>
+  agents kill  <name> | --all
   agents clean <name> | --all
 
 Layout: (default) here  -w window  -v vsplit  -h hsplit
