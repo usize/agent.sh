@@ -5,6 +5,28 @@
 : "${AGENT_DIR:=.agents}"
 : "${AGENT_SANDBOX_ARGS:=}"
 
+# Environment variables to forward into sandboxes when set.
+# Override with: AGENT_SANDBOX_ENV_VARS=(MY_VAR OTHER_VAR)
+if [[ -z "${AGENT_SANDBOX_ENV_VARS+x}" ]]; then
+  AGENT_SANDBOX_ENV_VARS=(
+    CLAUDE_CODE_USE_VERTEX
+    CLOUD_ML_REGION
+    ANTHROPIC_VERTEX_PROJECT_ID
+    ANTHROPIC_MODEL
+    GOOGLE_CLOUD_PROJECT
+    GOOGLE_APPLICATION_CREDENTIALS
+  )
+fi
+
+_a_env_flags() {
+  local flags="" val
+  for var in "${AGENT_SANDBOX_ENV_VARS[@]}"; do
+    val="$(printenv "$var" 2>/dev/null)" || continue
+    [[ -n "$val" ]] && flags+=" -e ${var}=${val}"
+  done
+  echo "$flags"
+}
+
 _a_err()  { printf "\033[31m[agents] %s\033[0m\n" "$*" >&2; }
 _a_info() { printf "\033[34m[agents] %s\033[0m\n" "$*" >&2; }
 
@@ -69,13 +91,20 @@ agents() {
     local existing_sandbox
     existing_sandbox=$(docker sandbox ls -q | grep "^agent-${name}$" || true)
 
-    local sandbox_cmd
     if [[ -z "$existing_sandbox" ]]; then
-      _a_info "creating new sandbox..."
-      sandbox_cmd="docker sandbox run ${AGENT_SANDBOX_ARGS} --name agent-${name} ${agent_type} '${ws}'"
-      [[ -n "$extra" ]] && sandbox_cmd="${sandbox_cmd} -- ${extra}"
+      _a_info "creating sandbox..."
+      docker sandbox create ${AGENT_SANDBOX_ARGS} --name "agent-${name}" "${agent_type}" "${ws}" \
+        || { _a_err "sandbox create failed"; return 1; }
+    fi
+
+    local env_flags; env_flags="$(_a_env_flags)"
+    local sandbox_cmd
+    if [[ -n "$env_flags" ]]; then
+      _a_info "starting with env vars..."
+      sandbox_cmd="docker sandbox exec -it${env_flags} agent-${name} ${agent_type}"
+      [[ -n "$extra" ]] && sandbox_cmd="${sandbox_cmd} ${extra}"
     else
-      _a_info "running existing sandbox..."
+      _a_info "starting sandbox..."
       sandbox_cmd="docker sandbox run agent-${name}"
       [[ -n "$extra" ]] && sandbox_cmd="${sandbox_cmd} -- ${extra}"
     fi
