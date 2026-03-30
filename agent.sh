@@ -89,23 +89,26 @@ agents() {
     
     _a_info "checking sandbox status..."
     local existing_sandbox
-    existing_sandbox=$(docker sandbox ls -q | grep "^agent-${name}$" || true)
+    existing_sandbox=$(docker sandbox ls -q | grep "^${name}$" || true)
 
     if [[ -z "$existing_sandbox" ]]; then
       _a_info "creating sandbox..."
-      docker sandbox create ${AGENT_SANDBOX_ARGS} --name "agent-${name}" "${agent_type}" "${ws}" \
+      docker sandbox create ${AGENT_SANDBOX_ARGS} --name "${name}" "${agent_type}" "${ws}" \
         || { _a_err "sandbox create failed"; return 1; }
     fi
+
+    # persist agent type for ls
+    echo "${agent_type}" > "${ws}/.agent-type"
 
     local env_flags; env_flags="$(_a_env_flags)"
     local sandbox_cmd
     if [[ -n "$env_flags" ]]; then
       _a_info "starting with env vars..."
-      sandbox_cmd="docker sandbox exec -it${env_flags} agent-${name} ${agent_type}"
+      sandbox_cmd="docker sandbox exec -it${env_flags} ${name} ${agent_type}"
       [[ -n "$extra" ]] && sandbox_cmd="${sandbox_cmd} ${extra}"
     else
       _a_info "starting sandbox..."
-      sandbox_cmd="docker sandbox run agent-${name}"
+      sandbox_cmd="docker sandbox run ${name}"
       [[ -n "$extra" ]] && sandbox_cmd="${sandbox_cmd} -- ${extra}"
     fi
     _a_info "sandbox command: ${sandbox_cmd}"
@@ -116,16 +119,28 @@ agents() {
     ;;
 
   ls)
+    local root; root="$(git rev-parse --show-toplevel 2>/dev/null)" || { _a_err "not in a repo"; return 1; }
+    local found=0
+
+    printf "  %-20s %-10s %s\n" "NAME" "TYPE" "SANDBOX"
+    for d in "${root}/${AGENT_DIR}"/*/; do
+      [[ -d "$d" ]] || continue
+      local n; n="$(basename "$d")"
+      local atype="unknown"
+      [[ -f "${d}/.agent-type" ]] && atype="$(<"${d}/.agent-type")"
+      local status="none"
+      docker sandbox ls -q 2>/dev/null | grep -qx "$n" && status="created"
+      printf "  %-20s %-10s %s\n" "$n" "$atype" "$status"
+      found=1
+    done
+    [[ $found -eq 0 ]] && echo "  (no agents)"
+
     if [[ -n "${TMUX:-}" ]]; then
-      tmux list-windows -F '  #{window_index}: #{window_name}#{?window_active, *,}' \
-        | grep -E 'agent:|claude:|gemini:|opencode:' || echo "  (no agent windows)"
-      tmux list-panes -a -F '  #{window_name}/#{pane_index}: #{pane_title}' \
-        | grep -E 'agent:|claude:|gemini:|opencode:' 2>/dev/null
+      echo ""
+      echo "  tmux:"
+      tmux list-windows -F '    #{window_index}: #{window_name}#{?window_active, *,}' \
+        | grep -E 'claude:|gemini:|opencode:' || true
     fi
-    echo ""
-    docker sandbox ls 2>/dev/null | grep -E 'agent-|NAME' || true
-    echo ""
-    git worktree list 2>/dev/null | grep "${AGENT_DIR}" || true
     ;;
 
   kill)
@@ -140,7 +155,7 @@ agents() {
         [[ -n "$pid" ]] && tmux kill-pane -t "$pid"
       fi
     fi
-    docker sandbox stop "agent-${name}" 2>/dev/null
+    docker sandbox stop "${name}" 2>/dev/null
     _a_info "killed: $name"
     ;;
 
@@ -157,7 +172,7 @@ agents() {
       for d in "${root}/${AGENT_DIR}"/*/; do
         [[ -d "$d" ]] || continue
         local n; n="$(basename "$d")"
-        docker sandbox rm "agent-${n}" 2>/dev/null
+        docker sandbox rm "${n}" 2>/dev/null
         git worktree remove --force "$d" 2>/dev/null
         git branch -D "agent/${n}" 2>/dev/null
         _a_info "  $n"
@@ -165,7 +180,7 @@ agents() {
       rmdir "${root}/${AGENT_DIR}" 2>/dev/null
       _a_info "done"
     else
-      docker sandbox rm "agent-${name}" 2>/dev/null
+      docker sandbox rm "${name}" 2>/dev/null
       git worktree remove --force "${root}/${AGENT_DIR}/${name}" 2>/dev/null
       git branch -D "agent/${name}" 2>/dev/null
       _a_info "cleaned: $name"
