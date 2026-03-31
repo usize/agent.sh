@@ -67,12 +67,13 @@ agents() {
   case "$cmd" in
 
   start)
-    local layout="here" agent_type="claude" name="" extra=""
+    local layout="here" agent_type="claude" name="" extra="" prompt=""
     while [[ $# -gt 0 ]]; do
       case "$1" in
         -w) layout="window"; shift;;
         -v) layout="vsplit"; shift;;
         -h) layout="hsplit"; shift;;
+        -p) prompt="$2"; shift 2;;
         --) shift; extra="$*"; break;;
         -*) _a_err "unknown flag: $1"; return 1;;
         *) break;;
@@ -86,7 +87,7 @@ agents() {
       name="$1"; shift
     fi
 
-    [[ -z "$name" ]] && { _a_err "usage: agents start [-wvh] [agent] <name> [-- args]"; return 1; }
+    [[ -z "$name" ]] && { _a_err "usage: agents start [-wvh] [-p prompt] [agent] <name> [-- args]"; return 1; }
     
     _a_info "starting agent..."
     _a_info "creating worktree..."
@@ -127,6 +128,11 @@ agents() {
 
     local base_flags="--dangerously-skip-permissions"
     [[ -n "$extra" ]] && base_flags="${base_flags} ${extra}"
+
+    # write prompt as CLAUDE.md so the agent sees it on startup
+    if [[ -n "$prompt" ]]; then
+      printf '# Task\n\n%s\n' "$prompt" > "${ws}/CLAUDE.md"
+    fi
 
     local sandbox_cmd
     if [[ -n "$env_flags" ]]; then
@@ -225,7 +231,7 @@ agents() {
     cat <<'EOF'
 agents — tmux panes for sandboxed Claude Code agents
 
-  agents start [-wvh] [agent] <name> [-- args]
+  agents start [-wvh] [-p prompt] [agent] <name> [-- args]
   agents ls
   agents kill  <name> | --all
   agents clean <name> | --all
