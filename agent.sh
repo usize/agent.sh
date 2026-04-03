@@ -17,12 +17,45 @@ if [[ -z "${AGENT_SANDBOX_ENV_VARS+x}" ]]; then
   )
 fi
 
+_a_load_env_file() {
+  local file="$1"
+  [[ -f "$file" ]] || return 0
+  local flags="" line key value
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line#"${line%%[![:space:]]*}"}"   # trim leading whitespace
+    [[ -z "$line" || "$line" == \#* ]] && continue
+    [[ "$line" == *=* ]] || continue
+    key="${line%%=*}"
+    value="${line#*=}"
+    # strip surrounding quotes
+    if [[ "$value" =~ ^\"(.*)\"$ ]]; then
+      value="${BASH_REMATCH[1]}"
+    elif [[ "$value" =~ ^\'(.*)\'$ ]]; then
+      value="${BASH_REMATCH[1]}"
+    fi
+    flags+=" -e ${key}=${value}"
+  done < "$file"
+  echo "$flags"
+}
+
 _a_env_flags() {
-  local flags="" val
+  local flags=""
+
+  # 1. Global defaults (~/.agentsh.rc)
+  flags+="$(_a_load_env_file "${HOME}/.agentsh.rc")"
+
+  # 2. Project-level overrides ({repo}/.agentsh.env)
+  local root
+  root="$(git rev-parse --show-toplevel 2>/dev/null)" \
+    && flags+="$(_a_load_env_file "${root}/.agentsh.env")"
+
+  # 3. Shell environment (highest priority)
+  local val
   for var in "${AGENT_SANDBOX_ENV_VARS[@]}"; do
     val="$(printenv "$var" 2>/dev/null)" || continue
     [[ -n "$val" ]] && flags+=" -e ${var}=${val}"
   done
+
   echo "$flags"
 }
 
@@ -237,7 +270,9 @@ agents — tmux panes for sandboxed Claude Code agents
   agents clean <name> | --all
 
 Layout: (default) here  -w window  -v vsplit  -h hsplit
-Env: AGENT_DIR (.agents)  AGENT_SANDBOX_ARGS (extra docker sandbox flags)
+Env:    AGENT_DIR (.agents)  AGENT_SANDBOX_ARGS (extra docker sandbox flags)
+Config: ~/.agentsh.rc (global)  {repo}/.agentsh.env (project)
+        KEY=VALUE pairs injected as container env vars
 EOF
     ;;
 
