@@ -24,6 +24,7 @@ _a_load_env_file() {
   while IFS= read -r line || [[ -n "$line" ]]; do
     line="${line#"${line%%[![:space:]]*}"}"   # trim leading whitespace
     [[ -z "$line" || "$line" == \#* ]] && continue
+    line="${line#export }"                       # strip optional 'export' prefix
     [[ "$line" == *=* ]] || continue
     key="${line%%=*}"
     value="${line#*=}"
