@@ -44,6 +44,7 @@ GCloud Application Default Credentials are automatically copied into the sandbox
 agents start [-wvh] [-p prompt] [agent_type] <name> [-- args]
 agents ls
 agents kill  <name> | --all
+agents msg   <name> | --all <message>
 agents clean <name> | --all
 ```
 
@@ -64,3 +65,4 @@ Agent types: `claude` (default), `codex`, `gemini`, `opencode`
 4. **Credentials** — gcloud ADC copied into the worktree since sandboxes can't see host paths
 5. **Resume** — if the sandbox already exists, `--continue` picks up where it left off; if that fails, falls back to a fresh start
 6. **Tmux** — wraps everything in labeled panes/windows for easy management
+7. **Messaging** — `agents msg <name> <message>` sends keystrokes to an agent's tmux window; `--all` broadcasts to every agent

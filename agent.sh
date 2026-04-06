@@ -232,6 +232,38 @@ agents() {
     _a_info "killed: $name"
     ;;
 
+  msg|send)
+    local name="${1:?usage: agents msg <name> | --all <message>}"
+    shift
+
+    if [[ "$name" == "--all" ]]; then
+      local msg="$*"
+      [[ -z "$msg" ]] && { _a_err "usage: agents msg --all <message>"; return 1; }
+      local root; root="$(git rev-parse --show-toplevel 2>/dev/null)" || { _a_err "not in a repo"; return 1; }
+      for d in "${root}/${AGENT_DIR}"/*/; do
+        [[ -d "$d" ]] || continue
+        agents msg "$(basename "$d")" "$msg"
+      done
+      return
+    fi
+
+    local msg="$*"
+    [[ -z "$msg" ]] && { _a_err "usage: agents msg <name> <message>"; return 1; }
+
+    # Find the tmux window by matching the agent name in the window title
+    local target
+    target=$(tmux list-windows -a -F '#{session_id}:#{window_index} #{window_name}' \
+      | grep ":${name}" | head -1 | awk '{print $1}')
+
+    if [[ -z "$target" ]]; then
+      _a_err "no tmux window found for agent: $name"
+      return 1
+    fi
+
+    tmux send-keys -t "$target" "$msg" Enter
+    _a_info "sent to $name"
+    ;;
+
   clean)
     local name="${1:-}"
     if [[ -z "$name" ]]; then
@@ -268,6 +300,7 @@ agents — tmux panes for sandboxed Claude Code agents
   agents start [-wvh] [-p prompt] [agent] <name> [-- args]
   agents ls
   agents kill  <name> | --all
+  agents msg   <name> | --all <message>
   agents clean <name> | --all
 
 Layout: (default) here  -w window  -v vsplit  -h hsplit
