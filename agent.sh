@@ -91,8 +91,8 @@ _a_tmux() {
   case "$layout" in
     here)   eval "$cmd" ;;
     window) tmux new-window -n "$label" "$cmd" ;;
-    vsplit) tmux split-window -v -p 50 "$cmd"; tmux select-pane -T "$label" ;;
-    hsplit) tmux split-window -h -p 50 "$cmd"; tmux select-pane -T "$label" ;;
+    vsplit) tmux split-window -v "$cmd"; tmux select-pane -T "$label"; tmux select-layout even-vertical ;;
+    hsplit) tmux split-window -h "$cmd"; tmux select-pane -T "$label"; tmux select-layout even-horizontal ;;
   esac
 }
 
