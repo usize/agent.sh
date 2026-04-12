@@ -2,7 +2,7 @@
 
 A ~280-line bash script that runs Claude Code agents in Docker sandboxes. The sub-agents are managed via passing messages through tmux panes. Skills exist for producing pull requests when work finishes. This is a simple but powerful approach to orchestration. Allowing for highly parallelized workstreams.
 
-**Why not use** `docker sandbox run` directly? It doesn't support `--env` flags, can't access host credentials, and loses state on restart. `agent.sh` supports environment variable injection into sandboxes, meaning things like `gh` and VERTEX work.
+**Why not use** `docker sandbox run` directly? It doesn't support `--env` flags, can't access host credentials, and loses state on restart. `agent.sh` supports environment variable injection into sandboxes, meaning things like `gh` and VERTEX work. It also manages session state via a `.agents/` subdirectory.
 
 ![Usage demo](agensh.gif)
 
