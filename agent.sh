@@ -101,13 +101,14 @@ agents() {
   case "$cmd" in
 
   start)
-    local layout="here" agent_type="claude" name="" extra="" prompt=""
+    local layout="here" agent_type="claude" name="" extra="" prompt="" model=""
     while [[ $# -gt 0 ]]; do
       case "$1" in
         -w) layout="window"; shift;;
         -v) layout="vsplit"; shift;;
         -h) layout="hsplit"; shift;;
         -p) prompt="$2"; shift 2;;
+        -m) model="$2"; shift 2;;
         --) shift; extra="$*"; break;;
         -*) _a_err "unknown flag: $1"; return 1;;
         *) break;;
@@ -121,7 +122,7 @@ agents() {
       name="$1"; shift
     fi
 
-    [[ -z "$name" ]] && { _a_err "usage: agents start [-wvh] [-p prompt] [agent] <name> [-- args]"; return 1; }
+    [[ -z "$name" ]] && { _a_err "usage: agents start [-wvh] [-p prompt] [-m model] [agent] <name> [-- args]"; return 1; }
     
     _a_info "starting agent..."
     _a_info "creating worktree..."
@@ -153,6 +154,8 @@ agents() {
     fi
 
     local env_flags; env_flags="$(_a_env_flags)"
+    # -m flag overrides all config layers
+    [[ -n "$model" ]] && env_flags+=" -e ANTHROPIC_MODEL=${model}"
     # point credentials at the workspace copy
     if [[ -f "${ws}/.gcloud/application_default_credentials.json" ]]; then
       env_flags+=" -e GOOGLE_APPLICATION_CREDENTIALS=${ws}/.gcloud/application_default_credentials.json"
@@ -297,13 +300,14 @@ agents() {
     cat <<'EOF'
 agents — tmux panes for sandboxed Claude Code agents
 
-  agents start [-wvh] [-p prompt] [agent] <name> [-- args]
+  agents start [-wvh] [-p prompt] [-m model] [agent] <name> [-- args]
   agents ls
   agents kill  <name> | --all
   agents msg   <name> | --all <message>
   agents clean <name> | --all
 
 Layout: (default) here  -w window  -v vsplit  -h hsplit
+Model:  -m model  override ANTHROPIC_MODEL (e.g., -m claude-opus-4-6)
 Env:    AGENT_DIR (.agents)  AGENT_SANDBOX_ARGS (extra docker sandbox flags)
 Config: ~/.agentsh.rc (global)  {repo}/.agentsh.env (project)
         KEY=VALUE pairs injected as container env vars

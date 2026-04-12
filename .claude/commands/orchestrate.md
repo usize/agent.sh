@@ -5,13 +5,15 @@ Spin up sandboxed agents to work on tasks in parallel. Each agent gets its own g
 `agent.sh` must be on PATH. It can be called directly as a script — it does not need to be sourced.
 
 ```
-agent.sh start [-wvh] [-p "prompt"] [agent_type] <name> [-- args]
+agent.sh start [-wvh] [-p "prompt"] [-m model] [agent_type] <name> [-- args]
 agent.sh ls
 agent.sh kill <name> | --all
 agent.sh clean <name> | --all
 ```
 
 Layout flags: `-v` vertical split, `-h` horizontal split, `-w` new window, omit for current pane.
+
+Model override: `-m model` sets `ANTHROPIC_MODEL` for the agent (e.g., `-m claude-opus-4-6`). Overrides all config layers.
 
 Agent types: `claude` (default), `codex`, `gemini`, `opencode`.
 
@@ -51,4 +53,5 @@ agent.sh start -v -p "Write integration tests for the auth module in tests/auth/
 - Name agents with short, descriptive names (no spaces or special characters).
 - Each agent works on its own worktree branch — they won't conflict.
 - Never start more agents than the task requires.
+- If the user specifies a model preference, pass it with `-m` to each agent.
 - Report back to the user what agents were started and what each is working on.

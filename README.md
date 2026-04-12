@@ -41,7 +41,7 @@ GCloud Application Default Credentials are automatically copied into the sandbox
 ## Usage
 
 ```
-agents start [-wvh] [-p prompt] [agent_type] <name> [-- args]
+agents start [-wvh] [-p prompt] [-m model] [agent_type] <name> [-- args]
 agents ls
 agents kill  <name> | --all
 agents msg   <name> | --all <message>
@@ -54,8 +54,35 @@ agents clean <name> | --all
 | `-v` | Vertical split |
 | `-h` | Horizontal split |
 | `-p "prompt"` | Write task to `CLAUDE.md` in the worktree |
+| `-m model` | Override `ANTHROPIC_MODEL` for this agent |
 
 Agent types: `claude` (default), `codex`, `gemini`, `opencode`
+
+## Model selection
+
+Override the model an agent uses with `-m`:
+
+```bash
+agents start -v -m claude-opus-4-6 my-agent
+```
+
+Priority chain (highest wins):
+
+1. `-m` flag
+2. Shell environment (`export ANTHROPIC_MODEL=...`)
+3. Project config (`{repo}/.agentsh.env`)
+4. Global config (`~/.agentsh.rc`)
+
+## Skills
+
+Claude Code slash commands that work with agent.sh:
+
+| Skill | Description |
+|-------|-------------|
+| `/orchestrate` | Split a task into parallel agents and start them |
+| `/merge` | Open GitHub PRs for agent branch work |
+
+Install skills globally with `make install`.
 
 ## How it works
 

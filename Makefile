@@ -13,6 +13,8 @@ install:
 	@mkdir -p $(SKILL_DIR)
 	@cp .claude/commands/orchestrate.md $(SKILL_DIR)/orchestrate.md
 	@echo "installed /orchestrate command to $(SKILL_DIR)/orchestrate.md"
+	@cp .claude/commands/merge.md $(SKILL_DIR)/merge.md
+	@echo "installed /merge command to $(SKILL_DIR)/merge.md"
 
 	@if ! echo "$$PATH" | tr ':' '\n' | grep -qx "$(BIN)"; then \
 		echo ""; \
@@ -29,3 +31,5 @@ uninstall:
 	@echo "removed $(BIN)/agent.sh"
 	@rm -f $(SKILL_DIR)/orchestrate.md
 	@echo "removed $(SKILL_DIR)/orchestrate.md"
+	@rm -f $(SKILL_DIR)/merge.md
+	@echo "removed $(SKILL_DIR)/merge.md"
