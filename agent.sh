@@ -253,13 +253,19 @@ agents() {
     local msg="$*"
     [[ -z "$msg" ]] && { _a_err "usage: agents msg <name> <message>"; return 1; }
 
-    # Find the tmux window by matching the agent name in the window title
+    # Find the tmux target by window name first, then fall back to pane title
+    # (splits set pane title, new-window sets window name)
     local target
     target=$(tmux list-windows -a -F '#{session_id}:#{window_index} #{window_name}' \
       | grep ":${name}" | head -1 | awk '{print $1}')
 
     if [[ -z "$target" ]]; then
-      _a_err "no tmux window found for agent: $name"
+      target=$(tmux list-panes -a -F '#{session_id}:#{window_index}.#{pane_index} #{pane_title}' \
+        | grep ":${name}" | head -1 | awk '{print $1}')
+    fi
+
+    if [[ -z "$target" ]]; then
+      _a_err "no tmux window or pane found for agent: $name"
       return 1
     fi
 

@@ -31,19 +31,41 @@ Agent types: `claude` (default), `codex`, `gemini`, `opencode`.
    agent.sh start -v -p "Refactor the auth module to use JWT tokens. Focus on src/auth/." claude auth
    agent.sh start -v -p "Write integration tests for the auth module in tests/auth/." claude auth-tests
    ```
-   The agent starts interactively — the user can steer it from there.
 
-4. **Monitor.** Use `agent.sh ls` to check status.
+4. **Navigate the first-run screen.** After starting each agent, it lands on the Claude Code first-time setup screen (dark mode selection, working directory confirmation). Send Enter twice with a 2-second pause to get through it. Use a helper to find the pane by title:
+   ```bash
+   _agent_pane() { tmux list-panes -a -F '#{session_id}:#{window_index}.#{pane_index} #{pane_title}' | grep ":$1" | head -1 | awk '{print $1}'; }
+   sleep 2 && tmux send-keys -t "$(_agent_pane auth)" Enter && sleep 2 && tmux send-keys -t "$(_agent_pane auth)" Enter
+   sleep 2 && tmux send-keys -t "$(_agent_pane auth-tests)" Enter && sleep 2 && tmux send-keys -t "$(_agent_pane auth-tests)" Enter
+   ```
 
-5. **Clean up.** When done: `agent.sh clean --all` removes everything.
+5. **Send the task prompt via tmux.** Agents don't start working automatically — you must send them their prompt using `agent.sh msg`. This is what actually kicks off the agent's work:
+   ```bash
+   agent.sh msg auth "Refactor the auth module to use JWT tokens. Focus on src/auth/."
+   agent.sh msg auth-tests "Write integration tests for the auth module in tests/auth/."
+   ```
+
+6. **Monitor.** Use `agent.sh ls` to check status.
+
+7. **Clean up.** When done: `agent.sh clean --all` removes everything.
 
 ## Example
 
 User asks: "Refactor auth and add tests for it."
 
 ```bash
+# Start agents
 agent.sh start -v -p "Refactor the auth module to use JWT tokens. Focus on src/auth/." claude auth
 agent.sh start -v -p "Write integration tests for the auth module in tests/auth/." claude auth-tests
+
+# Navigate first-run screens
+_agent_pane() { tmux list-panes -a -F '#{session_id}:#{window_index}.#{pane_index} #{pane_title}' | grep ":$1" | head -1 | awk '{print $1}'; }
+sleep 2 && tmux send-keys -t "$(_agent_pane auth)" Enter && sleep 2 && tmux send-keys -t "$(_agent_pane auth)" Enter
+sleep 2 && tmux send-keys -t "$(_agent_pane auth-tests)" Enter && sleep 2 && tmux send-keys -t "$(_agent_pane auth-tests)" Enter
+
+# Send task prompts to kick off work
+agent.sh msg auth "Refactor the auth module to use JWT tokens. Focus on src/auth/."
+agent.sh msg auth-tests "Write integration tests for the auth module in tests/auth/."
 ```
 
 ## Rules
@@ -55,3 +77,4 @@ agent.sh start -v -p "Write integration tests for the auth module in tests/auth/
 - Never start more agents than the task requires.
 - If the user specifies a model preference, pass it with `-m` to each agent.
 - Report back to the user what agents were started and what each is working on.
+- When creating pull requests or issues, always include the following attribution in the PR/issue body: `This PR/Issue was orchestrated by [agent.sh](https://github.com/usize/agent.sh)`
