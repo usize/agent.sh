@@ -109,6 +109,88 @@ _a_tmux() {
   esac
 }
 
+_a_find_target() {
+  local label="$1"
+  local target
+  target=$(tmux list-windows -a -F '#{session_id}:#{window_index} #{window_name}' \
+    | grep " ${label}$" | head -1 | awk '{print $1}')
+  if [[ -z "$target" ]]; then
+    target=$(tmux list-panes -a -F '#{session_id}:#{window_index}.#{pane_index} #{pane_title}' \
+      | grep " ${label}$" | head -1 | awk '{print $1}')
+  fi
+  echo "$target"
+}
+
+_a_wait_for_text() {
+  local target="$1" text="$2" timeout="${3:-30}"
+  local logfile="${AGENT_SETUP_LOG:-/dev/null}"
+  local elapsed=0
+  while (( elapsed < timeout )); do
+    local pane_content
+    pane_content="$(tmux capture-pane -t "$target" -p 2>/dev/null)" || true
+    if echo "$pane_content" | grep -qF "$text"; then
+      echo "[setup] found '$text' after ${elapsed}s on target $target" >> "$logfile"
+      return 0
+    fi
+    sleep 2
+    elapsed=$((elapsed + 2))
+  done
+  echo "[setup] TIMEOUT waiting for '$text' after ${timeout}s on target $target" >> "$logfile"
+  echo "[setup] last pane content:" >> "$logfile"
+  tmux capture-pane -t "$target" -p 2>/dev/null >> "$logfile" || true
+  return 1
+}
+
+_a_inject_prompt() {
+  local target="$1" prompt="$2"
+  local logfile="${AGENT_SETUP_LOG:-/dev/null}"
+  _a_wait_for_text "$target" "bypass permissions" 60 || return 1
+  sleep 1
+  tmux send-keys -t "$target" -l "$prompt"
+  tmux send-keys -t "$target" Enter
+  echo "[setup] injected prompt" >> "$logfile"
+}
+
+_a_first_run_setup() {
+  local target="$1" model="${2:-opus}" prompt="${3:-}"
+  local logfile="${AGENT_SETUP_LOG:-/dev/null}"
+  echo "[setup] starting first-run setup: target=$target model=$model" >> "$logfile"
+
+  # Screen 1: Theme — confirm default (dark mode is pre-selected)
+  _a_wait_for_text "$target" "Choose the text style" 120 || return 1
+  sleep 1
+  tmux send-keys -t "$target" Enter
+  echo "[setup] sent Enter for theme screen" >> "$logfile"
+
+  # Screen 2: Security notice — press Enter
+  _a_wait_for_text "$target" "Press Enter to continue" 30 || return 1
+  sleep 1
+  tmux send-keys -t "$target" Enter
+  echo "[setup] sent Enter for security screen" >> "$logfile"
+
+  # Screen 3: Trust workspace — press Enter
+  _a_wait_for_text "$target" "trust this folder" 30 || return 1
+  sleep 1
+  tmux send-keys -t "$target" Enter
+  echo "[setup] sent Enter for trust screen" >> "$logfile"
+
+  # Screen 4: Main prompt — set the model
+  _a_wait_for_text "$target" "bypass permissions" 30 || return 1
+  sleep 1
+  tmux send-keys -t "$target" "/model $model" Enter
+  echo "[setup] sent /model $model for prompt screen" >> "$logfile"
+  echo "[setup] first-run setup complete" >> "$logfile"
+
+  # Inject prompt if provided
+  if [[ -n "$prompt" ]]; then
+    _a_wait_for_text "$target" "Set model to" 30 || return 1
+    sleep 1
+    tmux send-keys -t "$target" -l "$prompt"
+    tmux send-keys -t "$target" Enter
+    echo "[setup] injected prompt" >> "$logfile"
+  fi
+}
+
 agents() {
   local cmd="${1:-help}"; shift 2>/dev/null
   case "$cmd" in
@@ -206,7 +288,31 @@ agents() {
     _a_info "sandbox command: ${redacted_cmd}"
 
     _a_info "launching in tmux..."
+
+    # Auto-navigate first-run setup for new sandboxes
+    if [[ -z "$existing_sandbox" && -n "${TMUX:-}" ]]; then
+      local setup_model="${model:-opus}"
+      if [[ "$layout" == "here" ]]; then
+        # For 'here' layout, _a_tmux blocks so start the poller first
+        # targeting the current pane
+        local here_target
+        here_target="$(tmux display-message -p '#{session_id}:#{window_index}.#{pane_index}')"
+        _a_first_run_setup "$here_target" "$setup_model" &
+      fi
+    fi
+
     _a_tmux "${agent_type}:${name}" "$layout" "$sandbox_cmd"
+
+    # For non-'here' layouts, _a_tmux returns immediately so start poller after
+    if [[ -z "$existing_sandbox" && "$layout" != "here" && -n "${TMUX:-}" ]]; then
+      local label="${agent_type}:${name}"
+      local target; target="$(_a_find_target "$label")"
+      if [[ -n "$target" ]]; then
+        local setup_model="${model:-opus}"
+        _a_first_run_setup "$target" "$setup_model" &
+      fi
+    fi
+
     _a_info "tmux command finished."
     ;;
 
