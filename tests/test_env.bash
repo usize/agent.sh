@@ -112,6 +112,20 @@ AGENT_SANDBOX_ENV_VARS=(
 
 # ---------------------------------------------------------------------------
 echo ""
+echo "=== AGENT_DEFAULT_MODEL: config variable ==="
+
+# default value
+_assert "defaults to opus" "$AGENT_DEFAULT_MODEL" "opus"
+
+# can be overridden
+AGENT_DEFAULT_MODEL="sonnet"
+_assert "accepts override" "$AGENT_DEFAULT_MODEL" "sonnet"
+
+# restore
+AGENT_DEFAULT_MODEL="opus"
+
+# ---------------------------------------------------------------------------
+echo ""
 echo "=== _a_sandbox_name: repo-scoped naming ==="
 
 _assert "scopes name with repo" "$(_a_sandbox_name "explorer" "/home/user/my-repo")" "my-repo-explorer"

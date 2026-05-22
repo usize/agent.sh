@@ -4,6 +4,7 @@
 
 : "${AGENT_DIR:=.agents}"
 : "${AGENT_SANDBOX_ARGS:=}"
+: "${AGENT_DEFAULT_MODEL:=opus}"
 
 # Environment variables to forward into sandboxes when set.
 # Override with: AGENT_SANDBOX_ENV_VARS=(MY_VAR OTHER_VAR)
@@ -290,7 +291,7 @@ agents() {
     _a_info "launching in tmux..."
 
     # Auto-navigate first-run setup and inject prompt
-    local setup_model="${model:-opus}"
+    local setup_model="${model:-$AGENT_DEFAULT_MODEL}"
     if [[ -n "${TMUX:-}" ]]; then
       if [[ -z "$existing_sandbox" && "$layout" == "here" ]]; then
         # For 'here' layout, _a_tmux blocks so start the poller first
@@ -450,6 +451,7 @@ agents — tmux panes for sandboxed Claude Code agents
 Layout: (default) here  -w window  -v vsplit  -h hsplit
 Model:  -m model  override ANTHROPIC_MODEL (e.g., -m claude-opus-4-6)
 Env:    AGENT_DIR (.agents)  AGENT_SANDBOX_ARGS (extra docker sandbox flags)
+        AGENT_DEFAULT_MODEL (opus)  model for /model command on first run
 Config: ~/.agentsh.rc (global)  {repo}/.agentsh.env (project)
         KEY=VALUE pairs injected as container env vars
 EOF
