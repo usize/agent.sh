@@ -94,6 +94,13 @@ _a_worktree() {
 
 _a_tmux() {
   local label="$1" layout="$2" cmd="$3"
+
+  # Detached mode works without being inside tmux
+  if [[ "$layout" == "detach" ]]; then
+    tmux new-session -d -x 200 -y 50 -n "$label" "$cmd"
+    return
+  fi
+
   if [[ -z "${TMUX:-}" ]]; then eval "$cmd"; return; fi
 
   local border_status; border_status="$(tmux show-option -gqv pane-border-status 2>/dev/null)"
@@ -200,6 +207,7 @@ agents() {
     local layout="here" agent_type="claude" name="" extra="" prompt="" model=""
     while [[ $# -gt 0 ]]; do
       case "$1" in
+        -d) layout="detach"; shift;;
         -w) layout="window"; shift;;
         -v) layout="vsplit"; shift;;
         -h) layout="hsplit"; shift;;
@@ -218,7 +226,7 @@ agents() {
       name="$1"; shift
     fi
 
-    [[ -z "$name" ]] && { _a_err "usage: agents start [-wvh] [-p prompt] [-m model] [agent] <name> [-- args]"; return 1; }
+    [[ -z "$name" ]] && { _a_err "usage: agents start [-dwvh] [-p prompt] [-m model] [agent] <name> [-- args]"; return 1; }
     
     _a_info "starting agent..."
     _a_info "creating worktree..."
@@ -292,16 +300,15 @@ agents() {
 
     # Auto-navigate first-run setup and inject prompt
     local setup_model="${model:-$AGENT_DEFAULT_MODEL}"
-    if [[ -n "${TMUX:-}" ]]; then
-      if [[ -z "$existing_sandbox" && "$layout" == "here" ]]; then
-        # For 'here' layout, _a_tmux blocks so start the poller first
-        local here_target
-        here_target="$(tmux display-message -p '#{session_id}:#{window_index}.#{pane_index}')"
+    local can_setup=false
+    [[ -n "${TMUX:-}" || "$layout" == "detach" ]] && can_setup=true
+
+    if [[ "$can_setup" == "true" && "$layout" == "here" ]]; then
+      local here_target
+      here_target="$(tmux display-message -p '#{session_id}:#{window_index}.#{pane_index}')"
+      if [[ -z "$existing_sandbox" ]]; then
         _a_first_run_setup "$here_target" "$setup_model" "$prompt" &
-      elif [[ -n "$existing_sandbox" && -n "$prompt" && "$layout" == "here" ]]; then
-        # Existing sandbox with prompt — inject after prompt is ready
-        local here_target
-        here_target="$(tmux display-message -p '#{session_id}:#{window_index}.#{pane_index}')"
+      elif [[ -n "$prompt" ]]; then
         _a_inject_prompt "$here_target" "$prompt" &
       fi
     fi
@@ -309,7 +316,7 @@ agents() {
     _a_tmux "${agent_type}:${name}" "$layout" "$sandbox_cmd"
 
     # For non-'here' layouts, _a_tmux returns immediately so start poller after
-    if [[ -n "${TMUX:-}" && "$layout" != "here" ]]; then
+    if [[ "$can_setup" == "true" && "$layout" != "here" ]]; then
       local label="${agent_type}:${name}"
       local target; target="$(_a_find_target "$label")"
       if [[ -n "$target" ]]; then
@@ -442,13 +449,13 @@ agents() {
     cat <<'EOF'
 agents — tmux panes for sandboxed Claude Code agents
 
-  agents start [-wvh] [-p prompt] [-m model] [agent] <name> [-- args]
+  agents start [-dwvh] [-p prompt] [-m model] [agent] <name> [-- args]
   agents ls
   agents kill  <name> | --all
   agents msg   <name> | --all <message>
   agents clean <name> | --all
 
-Layout: (default) here  -w window  -v vsplit  -h hsplit
+Layout: (default) here  -d detach  -w window  -v vsplit  -h hsplit
 Model:  -m model  override ANTHROPIC_MODEL (e.g., -m claude-opus-4-6)
 Env:    AGENT_DIR (.agents)  AGENT_SANDBOX_ARGS (extra docker sandbox flags)
         AGENT_DEFAULT_MODEL (opus)  model for /model command on first run
