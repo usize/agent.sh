@@ -213,6 +213,7 @@ agents() {
   ls)
     local root; root="$(git rev-parse --show-toplevel 2>/dev/null)" || { _a_err "not in a repo"; return 1; }
     local found=0
+    local sandbox_list; sandbox_list="$(docker sandbox ls -q 2>/dev/null)"
 
     printf "  %-20s %-10s %s\n" "NAME" "TYPE" "SANDBOX"
     for d in "${root}/${AGENT_DIR}"/*/; do
@@ -222,7 +223,7 @@ agents() {
       [[ -f "${d}/.agent-type" ]] && atype="$(<"${d}/.agent-type")"
       local sbox="none"
       local sbox_name; sbox_name="$(_a_sandbox_name "$n" "$root")"
-      docker sandbox ls -q 2>/dev/null | grep -qx "$sbox_name" && sbox="created"
+      echo "$sandbox_list" | grep -qx "$sbox_name" && sbox="created"
       printf "  %-20s %-10s %s\n" "$n" "$atype" "$sbox"
       found=1
     done
@@ -276,11 +277,11 @@ agents() {
     # (splits set pane title, new-window sets window name)
     local target
     target=$(tmux list-windows -a -F '#{session_id}:#{window_index} #{window_name}' \
-      | grep ":${name}" | head -1 | awk '{print $1}')
+      | grep " [^:]*:${name}$" | head -1 | awk '{print $1}')
 
     if [[ -z "$target" ]]; then
       target=$(tmux list-panes -a -F '#{session_id}:#{window_index}.#{pane_index} #{pane_title}' \
-        | grep ":${name}" | head -1 | awk '{print $1}')
+        | grep " [^:]*:${name}$" | head -1 | awk '{print $1}')
     fi
 
     if [[ -z "$target" ]]; then
