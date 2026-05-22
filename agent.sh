@@ -193,7 +193,9 @@ agents() {
         sandbox_cmd="${sandbox_cmd} -- ${base_flags}"
       fi
     fi
-    _a_info "sandbox command: ${sandbox_cmd}"
+    local redacted_cmd
+    redacted_cmd="$(printf '%s' "$sandbox_cmd" | sed 's/-e \([A-Za-z_][A-Za-z_0-9]*\)=[^ ]*/-e \1=***/g')"
+    _a_info "sandbox command: ${redacted_cmd}"
 
     _a_info "launching in tmux..."
     _a_tmux "${agent_type}:${name}" "$layout" "$sandbox_cmd"
