@@ -289,27 +289,34 @@ agents() {
 
     _a_info "launching in tmux..."
 
-    # Auto-navigate first-run setup for new sandboxes
-    if [[ -z "$existing_sandbox" && -n "${TMUX:-}" ]]; then
-      local setup_model="${model:-opus}"
-      if [[ "$layout" == "here" ]]; then
+    # Auto-navigate first-run setup and inject prompt
+    local setup_model="${model:-opus}"
+    if [[ -n "${TMUX:-}" ]]; then
+      if [[ -z "$existing_sandbox" && "$layout" == "here" ]]; then
         # For 'here' layout, _a_tmux blocks so start the poller first
-        # targeting the current pane
         local here_target
         here_target="$(tmux display-message -p '#{session_id}:#{window_index}.#{pane_index}')"
-        _a_first_run_setup "$here_target" "$setup_model" &
+        _a_first_run_setup "$here_target" "$setup_model" "$prompt" &
+      elif [[ -n "$existing_sandbox" && -n "$prompt" && "$layout" == "here" ]]; then
+        # Existing sandbox with prompt — inject after prompt is ready
+        local here_target
+        here_target="$(tmux display-message -p '#{session_id}:#{window_index}.#{pane_index}')"
+        _a_inject_prompt "$here_target" "$prompt" &
       fi
     fi
 
     _a_tmux "${agent_type}:${name}" "$layout" "$sandbox_cmd"
 
     # For non-'here' layouts, _a_tmux returns immediately so start poller after
-    if [[ -z "$existing_sandbox" && "$layout" != "here" && -n "${TMUX:-}" ]]; then
+    if [[ -n "${TMUX:-}" && "$layout" != "here" ]]; then
       local label="${agent_type}:${name}"
       local target; target="$(_a_find_target "$label")"
       if [[ -n "$target" ]]; then
-        local setup_model="${model:-opus}"
-        _a_first_run_setup "$target" "$setup_model" &
+        if [[ -z "$existing_sandbox" ]]; then
+          _a_first_run_setup "$target" "$setup_model" "$prompt" &
+        elif [[ -n "$prompt" ]]; then
+          _a_inject_prompt "$target" "$prompt" &
+        fi
       fi
     fi
 

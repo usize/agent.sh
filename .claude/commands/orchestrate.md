@@ -26,34 +26,24 @@ Agent types: `claude` (default), `codex`, `gemini`, `opencode`.
    - `-h` horizontal split (side by side)
    - `-w` new tmux window
 
-3. **Start agents with prompts.** Use `-p` to give each agent its task. The prompt is written to `CLAUDE.md` in the agent's worktree, so the agent sees it as project instructions on startup. The first-run setup (theme, security notice, workspace trust, model selection) is handled automatically by `agent.sh`:
+3. **Start agents with prompts.** Use `-p` to give each agent its task. The prompt is typed into the Claude Code prompt automatically after setup completes, so agents begin working immediately. First-run setup (theme, security notice, workspace trust, model selection) is also handled automatically:
    ```bash
    agent.sh start -v -p "Refactor the auth module to use JWT tokens. Focus on src/auth/." claude auth
    agent.sh start -v -p "Write integration tests for the auth module in tests/auth/." claude auth-tests
    ```
 
-4. **Send the task prompt via tmux.** Agents don't start working automatically — you must send them their prompt using `agent.sh msg`. This is what actually kicks off the agent's work:
-   ```bash
-   agent.sh msg auth "Refactor the auth module to use JWT tokens. Focus on src/auth/."
-   agent.sh msg auth-tests "Write integration tests for the auth module in tests/auth/."
-   ```
+4. **Monitor.** Use `agent.sh ls` to check status.
 
-5. **Monitor.** Use `agent.sh ls` to check status.
-
-6. **Clean up.** When done: `agent.sh clean --all` removes everything.
+5. **Clean up.** When done: `agent.sh clean --all` removes everything.
 
 ## Example
 
 User asks: "Refactor auth and add tests for it."
 
 ```bash
-# Start agents (first-run setup is handled automatically)
+# Start agents — prompts are injected automatically, agents begin working immediately
 agent.sh start -v -p "Refactor the auth module to use JWT tokens. Focus on src/auth/." claude auth
 agent.sh start -v -p "Write integration tests for the auth module in tests/auth/." claude auth-tests
-
-# Send task prompts to kick off work
-agent.sh msg auth "Refactor the auth module to use JWT tokens. Focus on src/auth/."
-agent.sh msg auth-tests "Write integration tests for the auth module in tests/auth/."
 ```
 
 ## Rules
