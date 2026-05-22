@@ -2,49 +2,14 @@
 # Tests for sandbox command redaction.
 set -euo pipefail
 
-PASS=0
-FAIL=0
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/helpers.bash"
 
-_assert() {
-  local label="$1" result="$2" expected="$3"
-  if [[ "$result" == "$expected" ]]; then
-    printf "  \033[32mPASS\033[0m %s\n" "$label"
-    ((PASS++)) || true
-  else
-    printf "  \033[31mFAIL\033[0m %s\n" "$label"
-    printf "       expected: %s\n" "$expected"
-    printf "       got:      %s\n" "$result"
-    ((FAIL++)) || true
-  fi
-}
-
-_assert_contains() {
-  local label="$1" haystack="$2" needle="$3"
-  if echo "$haystack" | grep -qF "$needle"; then
-    printf "  \033[32mPASS\033[0m %s\n" "$label"
-    ((PASS++)) || true
-  else
-    printf "  \033[31mFAIL\033[0m %s\n" "$label"
-    printf "       expected to contain: %s\n" "$needle"
-    ((FAIL++)) || true
-  fi
-}
-
-_assert_not_contains() {
-  local label="$1" haystack="$2" needle="$3"
-  if echo "$haystack" | grep -qF "$needle"; then
-    printf "  \033[31mFAIL\033[0m %s\n" "$label"
-    printf "       should not contain: %s\n" "$needle"
-    ((FAIL++)) || true
-  else
-    printf "  \033[32mPASS\033[0m %s\n" "$label"
-    ((PASS++)) || true
-  fi
-}
-
-# The redaction pattern used in agent.sh
+# Extract the actual sed pattern from agent.sh so tests stay in sync.
 _redact() {
-  printf '%s' "$1" | sed 's/-e \([A-Za-z_][A-Za-z_0-9]*\)=[^ ]*/-e \1=***/g'
+  local sed_pattern
+  sed_pattern="$(grep -o "sed '[^']*'" "${SCRIPT_DIR}/../agent.sh" | head -1)"
+  printf '%s' "$1" | eval "$sed_pattern"
 }
 
 # ---------------------------------------------------------------------------
@@ -91,7 +56,4 @@ result="$(_redact "$input")"
 _assert "unchanged without -e flags" "$result" "$input"
 
 # ---------------------------------------------------------------------------
-echo ""
-echo "=== summary ==="
-printf "  %d passed, %d failed\n" "$PASS" "$FAIL"
-[[ $FAIL -eq 0 ]]
+_summary

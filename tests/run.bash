@@ -11,7 +11,7 @@ FAILED_SUITES=()
 for t in "${SCRIPT_DIR}"/test_*.bash; do
   [[ -f "$t" ]] || continue
   suite="$(basename "$t" .bash)"
-  ((SUITES++))
+  ((SUITES++)) || true
   echo "--- ${suite} ---"
   if bash "$t"; then
     echo ""

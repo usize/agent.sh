@@ -2,7 +2,7 @@ PREFIX   := $(HOME)/.local
 BIN      := $(PREFIX)/bin
 SKILL_DIR := $(HOME)/.claude/commands
 
-.PHONY: install uninstall
+.PHONY: install uninstall test
 
 install:
 	@mkdir -p $(BIN)
@@ -25,6 +25,9 @@ install:
 	@echo ""
 	@echo "source agent.sh in your shell profile for the 'agents' function:"
 	@echo "  echo 'source $(BIN)/agent.sh' >> ~/.zshrc"
+
+test:
+	@bash tests/run.bash
 
 uninstall:
 	@rm -f $(BIN)/agent.sh

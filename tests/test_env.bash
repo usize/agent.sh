@@ -1,51 +1,12 @@
 #!/usr/bin/env bash
-# Tests for env file loading and allowlist filtering.
+# Tests for env file loading, allowlist filtering, and sandbox naming.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/helpers.bash"
 set +u  # agent.sh checks $ZSH_EVAL_CONTEXT which is unset in bash
 source "${SCRIPT_DIR}/../agent.sh"
 set -u
-
-PASS=0
-FAIL=0
-
-_assert() {
-  local label="$1" result="$2" expected="$3"
-  if [[ "$result" == "$expected" ]]; then
-    printf "  \033[32mPASS\033[0m %s\n" "$label"
-    ((PASS++)) || true
-  else
-    printf "  \033[31mFAIL\033[0m %s\n" "$label"
-    printf "       expected: %s\n" "$expected"
-    printf "       got:      %s\n" "$result"
-    ((FAIL++)) || true
-  fi
-}
-
-_assert_contains() {
-  local label="$1" haystack="$2" needle="$3"
-  if echo "$haystack" | grep -qF "$needle"; then
-    printf "  \033[32mPASS\033[0m %s\n" "$label"
-    ((PASS++)) || true
-  else
-    printf "  \033[31mFAIL\033[0m %s\n" "$label"
-    printf "       expected to contain: %s\n" "$needle"
-    ((FAIL++)) || true
-  fi
-}
-
-_assert_not_contains() {
-  local label="$1" haystack="$2" needle="$3"
-  if echo "$haystack" | grep -qF "$needle"; then
-    printf "  \033[31mFAIL\033[0m %s\n" "$label"
-    printf "       should not contain: %s\n" "$needle"
-    ((FAIL++)) || true
-  else
-    printf "  \033[32mPASS\033[0m %s\n" "$label"
-    ((PASS++)) || true
-  fi
-}
 
 TMPDIR="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR"' EXIT
@@ -158,7 +119,4 @@ _assert "scopes name with nested repo" "$(_a_sandbox_name "docs" "/a/b/kagenti-z
 _assert "handles hyphens in agent name" "$(_a_sandbox_name "my-agent" "/repo/root")" "root-my-agent"
 
 # ---------------------------------------------------------------------------
-echo ""
-echo "=== summary ==="
-printf "  %d passed, %d failed\n" "$PASS" "$FAIL"
-[[ $FAIL -eq 0 ]]
+_summary
