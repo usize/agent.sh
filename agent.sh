@@ -69,6 +69,13 @@ _a_env_flags() {
 _a_err()  { printf "\033[31m[agents] %s\033[0m\n" "$*" >&2; }
 _a_info() { printf "\033[34m[agents] %s\033[0m\n" "$*" >&2; }
 
+# Sandbox names are scoped to the repo to avoid cross-project collisions.
+_a_sandbox_name() {
+  local name="$1" root="$2"
+  local repo; repo="$(basename "$root")"
+  echo "${repo}-${name}"
+}
+
 _a_worktree() {
   local name="$1"
   local root; root="$(git rev-parse --show-toplevel 2>/dev/null)" || { _a_err "not in a git repo"; return 1; }
@@ -136,13 +143,14 @@ agents() {
     _a_info "worktree at: ${ws}"
     
     _a_info "checking sandbox status..."
+    local root; root="$(git rev-parse --show-toplevel 2>/dev/null)"
+    local sbox; sbox="$(_a_sandbox_name "$name" "$root")"
     local existing_sandbox
-    existing_sandbox=$(docker sandbox ls -q | grep "^${name}$" || true)
+    existing_sandbox=$(docker sandbox ls -q | grep "^${sbox}$" || true)
 
     if [[ -z "$existing_sandbox" ]]; then
       _a_info "creating sandbox..."
-      local root; root="$(git rev-parse --show-toplevel 2>/dev/null)"
-      docker sandbox create ${AGENT_SANDBOX_ARGS} --name "${name}" "${agent_type}" "${ws}" "${root}/.git" \
+      docker sandbox create ${AGENT_SANDBOX_ARGS} --name "${sbox}" "${agent_type}" "${ws}" "${root}/.git" \
         || { _a_err "sandbox create failed"; return 1; }
     fi
 
@@ -179,16 +187,16 @@ agents() {
 
     local sandbox_cmd
     if [[ -n "$env_flags" ]]; then
-      local exec_prefix="docker sandbox exec -it -w '${ws}'${env_flags} ${name} ${agent_type}"
+      local exec_prefix="docker sandbox exec -it -w '${ws}'${env_flags} ${sbox} ${agent_type}"
       if [[ -n "$resume_flag" ]]; then
         sandbox_cmd="${exec_prefix} ${base_flags} --continue || ${exec_prefix} ${base_flags}"
       else
         sandbox_cmd="${exec_prefix} ${base_flags}"
       fi
     else
-      sandbox_cmd="docker sandbox run ${name}"
+      sandbox_cmd="docker sandbox run ${sbox}"
       if [[ -n "$resume_flag" ]]; then
-        sandbox_cmd="${sandbox_cmd} -- ${base_flags} --continue || docker sandbox run ${name} -- ${base_flags}"
+        sandbox_cmd="${sandbox_cmd} -- ${base_flags} --continue || docker sandbox run ${sbox} -- ${base_flags}"
       elif [[ -n "$extra" ]]; then
         sandbox_cmd="${sandbox_cmd} -- ${base_flags}"
       fi
@@ -213,7 +221,8 @@ agents() {
       local atype="unknown"
       [[ -f "${d}/.agent-type" ]] && atype="$(<"${d}/.agent-type")"
       local sbox="none"
-      docker sandbox ls -q 2>/dev/null | grep -qx "$n" && sbox="created"
+      local sbox_name; sbox_name="$(_a_sandbox_name "$n" "$root")"
+      docker sandbox ls -q 2>/dev/null | grep -qx "$sbox_name" && sbox="created"
       printf "  %-20s %-10s %s\n" "$n" "$atype" "$sbox"
       found=1
     done
@@ -239,7 +248,9 @@ agents() {
       return
     fi
 
-    docker sandbox stop "${name}" 2>/dev/null
+    local root; root="$(git rev-parse --show-toplevel 2>/dev/null)" || { _a_err "not in a repo"; return 1; }
+    local sbox; sbox="$(_a_sandbox_name "$name" "$root")"
+    docker sandbox stop "${sbox}" 2>/dev/null
     _a_info "killed: $name"
     ;;
 
@@ -295,7 +306,8 @@ agents() {
       for d in "${root}/${AGENT_DIR}"/*/; do
         [[ -d "$d" ]] || continue
         local n; n="$(basename "$d")"
-        docker sandbox rm "${n}" 2>/dev/null
+        local sbox_n; sbox_n="$(_a_sandbox_name "$n" "$root")"
+        docker sandbox rm "${sbox_n}" 2>/dev/null
         git worktree remove --force "$d" 2>/dev/null
         git branch -D "agent/${n}" 2>/dev/null
         _a_info "  $n"
@@ -303,7 +315,8 @@ agents() {
       rmdir "${root}/${AGENT_DIR}" 2>/dev/null
       _a_info "done"
     else
-      docker sandbox rm "${name}" 2>/dev/null
+      local sbox; sbox="$(_a_sandbox_name "$name" "$root")"
+      docker sandbox rm "${sbox}" 2>/dev/null
       git worktree remove --force "${root}/${AGENT_DIR}/${name}" 2>/dev/null
       git branch -D "agent/${name}" 2>/dev/null
       _a_info "cleaned: $name"

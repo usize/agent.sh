@@ -151,6 +151,14 @@ AGENT_SANDBOX_ENV_VARS=(
 
 # ---------------------------------------------------------------------------
 echo ""
+echo "=== _a_sandbox_name: repo-scoped naming ==="
+
+_assert "scopes name with repo" "$(_a_sandbox_name "explorer" "/home/user/my-repo")" "my-repo-explorer"
+_assert "scopes name with nested repo" "$(_a_sandbox_name "docs" "/a/b/kagenti-zoo")" "kagenti-zoo-docs"
+_assert "handles hyphens in agent name" "$(_a_sandbox_name "my-agent" "/repo/root")" "root-my-agent"
+
+# ---------------------------------------------------------------------------
+echo ""
 echo "=== summary ==="
 printf "  %d passed, %d failed\n" "$PASS" "$FAIL"
 [[ $FAIL -eq 0 ]]
