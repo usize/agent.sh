@@ -34,6 +34,12 @@ _a_load_env_file() {
     elif [[ "$value" =~ ^\'(.*)\'$ ]]; then
       value="${BASH_REMATCH[1]}"
     fi
+    # only forward variables present in the allowlist
+    local allowed=0
+    for var in "${AGENT_SANDBOX_ENV_VARS[@]}"; do
+      [[ "$var" == "$key" ]] && { allowed=1; break; }
+    done
+    [[ $allowed -eq 1 ]] || continue
     flags+=" -e ${key}=${value}"
   done < "$file"
   echo "$flags"
